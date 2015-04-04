@@ -2,16 +2,16 @@
 
 'use strict';
 
-var fs = require('fs');
-var path = require('path');
-var d = require('debug')('nvc');
-var exec = require('child_process').exec;
-var cp = require('wrench').copyDirSyncRecursive;
-var rmdir = require('wrench').rmdirSyncRecursive;
-//var cp = require('../src/cp');
-var args = process.argv.slice(2);
+var fs      = require('fs');
+var path    = require('path');
+var d       = require('debug')('nvc');
+var exec    = require('child_process').exec;
+var cp      = require('wrench').copyDirSyncRecursive;
+var rmdir   = require('wrench').rmdirSyncRecursive;
+//var cp    = require('../src/cp');
+var args    = process.argv.slice(2);
 var nvcPath = path.resolve('.', '.nvc');
-
+var colors = require('colors');
 
 // type Path = String
 // getNextSnapshotId :: Path -> String
@@ -22,13 +22,13 @@ function getNextSnapshotId(nvcPath) {
 // snap :: IO ()
 function snap() {
   var nextSnapshotId = getNextSnapshotId(nvcPath).toString();
-  var snapShotPath = path.join(nvcPath, nextSnapshotId);
+  var snapShotPath   = path.join(nvcPath, nextSnapshotId);
 
   cp('.', snapShotPath, {
     exclude: /\.nvc/
   });
 
-  console.log('Snapshot %d created', nextSnapshotId);
+  console.log('Snapshot %d created'.green, nextSnapshotId);
 }
 
 // checkout :: Int -> IO ()
@@ -38,14 +38,14 @@ function checkout(snapshotId) {
   snapshotId = 'latest' === snapshotId ? latestSnapshotId : snapshotId;
 
   if (snapshotId > latestSnapshotId) {
-    console.log('Snapshot %d hasn\'t been created yet', snapshotId);
+    console.log('Snapshot %d hasn\'t been created yet'.red, snapshotId);
     process.exit(1);
   }
 
   var snapShotPath = path.join(nvcPath, snapshotId + '');
-  var files = fs.readdirSync('.');
+  var files        = fs.readdirSync('.');
 
-  // delete all files and folders except .nvc and cwd (should be project root really)
+  // delete all files and folders except .nvc in cwd (should be project root really)
   files.forEach(function(file) {
     if ('.nvc' === file) return;
 
@@ -57,7 +57,7 @@ function checkout(snapshotId) {
   });
 
   exec('cp -R ' + snapShotPath + '/ .', function(err, stdout, stderr) {
-    if (!err) console.log('Snapshot %d restored', snapshotId);
+    if (!err) console.log('Snapshot %d restored'.green, snapshotId);
   });
 }
 
@@ -76,7 +76,7 @@ function run(operation, args) {
   catch (e) {
     switch (e.code) {
       case 'ENOENT':
-        console.log('Creating repository..');
+        console.log('Creating repository..'.yellow);
 
         //make directory since it doesn't exist
         fs.mkdirSync('./.nvc', '0755');
@@ -110,7 +110,7 @@ function perform(operation, args) {
     case 'branch':
       break;
     default:
-      console.log('Unrecognised command');
+      console.log('Unrecognised command -> '.red + operation.yellow);
       process.exit(1);
   }
 }
