@@ -28,7 +28,7 @@ function snap() {
     exclude: /\.nvc/
   });
 
-  console.log('Snapshot %d created'.green, nextSnapshotId);
+  console.log('nvc: '.blue + 'Snapshot %d created'.green, nextSnapshotId);
 }
 
 // checkout :: Int -> IO ()
@@ -38,7 +38,7 @@ function checkout(snapshotId) {
   snapshotId = 'latest' === snapshotId ? latestSnapshotId : snapshotId;
 
   if (snapshotId > latestSnapshotId) {
-    console.log('Snapshot %d hasn\'t been created yet'.red, snapshotId);
+    console.log('nvc: '.blue + 'Snapshot %d hasn\'t been created yet'.red, snapshotId);
     process.exit(1);
   }
 
@@ -57,7 +57,7 @@ function checkout(snapshotId) {
   });
 
   exec('cp -R ' + snapShotPath + '/ .', function(err, stdout, stderr) {
-    if (!err) console.log('Snapshot %d restored'.green, snapshotId);
+    if (!err) console.log('nvc: '.blue + 'Snapshot %d restored'.green, snapshotId);
   });
 }
 
@@ -76,7 +76,7 @@ function run(operation, args) {
   catch (e) {
     switch (e.code) {
       case 'ENOENT':
-        console.log('Creating repository..'.yellow);
+        console.log('nvc: '.blue + 'Creating repository..'.yellow);
 
         //make directory since it doesn't exist
         fs.mkdirSync('./.nvc', '0755');
@@ -110,7 +110,7 @@ function perform(operation, args) {
     case 'branch':
       break;
     default:
-      console.log('Unrecognised command -> '.red + operation.yellow);
+      console.log('nvc: '.blue + 'Unrecognised command -> '.red + operation.yellow);
       process.exit(1);
   }
 }
