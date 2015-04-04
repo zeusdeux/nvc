@@ -10,35 +10,39 @@ var cp = require('wrench').copyDirSyncRecursive;
 var rmdir = require('wrench').rmdirSyncRecursive;
 //var cp = require('../src/cp');
 var args = process.argv.slice(2);
-var nvc = path.resolve('.', '.nvc');
+var nvcPath = path.resolve('.', '.nvc');
 
 
 // type Path = String
-// getCurrentSnapshotVersion :: Path -> String
-function getCurrentSnapshotVersion(nvcPath) {
+// getNextSnapshotId :: Path -> String
+function getNextSnapshotId(nvcPath) {
   return (fs.readdirSync(nvcPath).length + 1);
 }
 
 // snap :: IO ()
 function snap() {
-  var latestSnapshotVersion = getCurrentSnapshotVersion(nvc).toString();
-  var snapShotPath = path.join(nvc, latestSnapshotVersion);
+  var nextSnapshotId = getNextSnapshotId(nvcPath).toString();
+  var snapShotPath = path.join(nvcPath, nextSnapshotId);
 
   cp('.', snapShotPath, {
     exclude: /\.nvc/
   });
 
-  console.log('Snapshot %d created', latestSnapshotVersion);
+  console.log('Snapshot %d created', nextSnapshotId);
 }
 
 // checkout :: Int -> IO ()
-function checkout(snapshotNumber) {
-  if (snapshotNumber >= getCurrentSnapshotVersion(nvc)) {
-    console.log('Snapshot %d hasn\'t been created yet', snapshotNumber);
+function checkout(snapshotId) {
+  var latestSnapshotId = getNextSnapshotId(nvcPath) - 1;
+
+  snapshotId = 'latest' === snapshotId ? latestSnapshotId : snapshotId;
+
+  if (snapshotId > latestSnapshotId) {
+    console.log('Snapshot %d hasn\'t been created yet', snapshotId);
     process.exit(1);
   }
 
-  var snapShotPath = path.join(nvc, snapshotNumber + '');
+  var snapShotPath = path.join(nvcPath, snapshotId + '');
   var files = fs.readdirSync('.');
 
   // delete all files and folders except .nvc and cwd (should be project root really)
@@ -53,7 +57,7 @@ function checkout(snapshotNumber) {
   });
 
   exec('cp -r ' + snapShotPath + '/* .', function(err, stdout, stderr) {
-    if (!err) console.log('Snapshot %d restored', snapshotNumber);
+    if (!err) console.log('Snapshot %d restored', snapshotId);
   });
 }
 
@@ -64,7 +68,7 @@ function run(operation, args) {
   d('Params %s, %o', operation, args);
 
   try {
-    var stats = fs.statSync(nvc);
+    var stats = fs.statSync(nvcPath);
 
     if (stats.isDirectory()) perform(operation, args);
     else throw new Error('.nvc exists but is not a directory.');
