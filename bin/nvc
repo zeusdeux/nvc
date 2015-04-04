@@ -22,13 +22,18 @@ function getNextSnapshotId(nvcPath) {
 }
 
 // snap :: IO ()
-function snap() {
+function snap(msg) {
   var nextSnapshotId = getNextSnapshotId(nvcPath).toString();
   var snapShotPath   = path.join(nvcPath, nextSnapshotId);
+  var HEAD           = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD')));
 
   cp('.', snapShotPath, {
     exclude: /\.nvc/
   });
+
+  // update HEAD with snapshot and message
+  HEAD.push({id: nextSnapshotId, message: msg});
+  fs.writeFileSync(path.join(nvcPath, 'HEAD'), JSON.stringify(HEAD));
 
   console.log('nvc: '.blue + 'Snapshot %d created'.green, nextSnapshotId);
 }
@@ -52,7 +57,7 @@ function checkout(snapshotId) {
     if ('.nvc' === file) return;
 
     var filePath = path.join('.', file);
-    var stats = fs.statSync(filePath);
+    var stats    = fs.statSync(filePath);
 
     if (stats.isDirectory()) rmdir(filePath, false);
     else fs.unlinkSync(filePath);
@@ -80,8 +85,13 @@ function run(operation, args) {
       case 'ENOENT':
         console.log('nvc: '.blue + 'Creating repository..'.yellow);
 
-        //make directory since it doesn't exist
+        // make directory since it doesn't exist
         fs.mkdirSync('./.nvc', '0755');
+
+        // make HEAD file
+        fs.writeFileSync('./.nvc/HEAD', '[]', {
+          mode: 420
+        }); //420 is 0644 in octal. Try (420).toString(8)
 
         // perform operation
         perform(operation, args);
@@ -98,7 +108,7 @@ function perform(operation, args) {
   switch (operation) {
     case 'snap':
     case 'backup':
-      snap();
+    snap('-m' ===  args[0] ? args[1] : '');
       break;
     case 'checkout':
       checkout(args[0]);
