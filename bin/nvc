@@ -56,7 +56,7 @@ function checkout(snapshotId) {
     else fs.unlinkSync(filePath);
   });
 
-  exec('cp -r ' + snapShotPath + '/* .', function(err, stdout, stderr) {
+  exec('cp -R ' + snapShotPath + '/* .', function(err, stdout, stderr) {
     if (!err) console.log('Snapshot %d restored', snapshotId);
   });
 }
