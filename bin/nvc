@@ -2,6 +2,8 @@
 
 'use strict';
 
+require('colors');
+
 var fs      = require('fs');
 var path    = require('path');
 var d       = require('debug')('nvc');
@@ -11,7 +13,7 @@ var rmdir   = require('wrench').rmdirSyncRecursive;
 //var cp    = require('../src/cp');
 var args    = process.argv.slice(2);
 var nvcPath = path.resolve('.', '.nvc');
-var colors = require('colors');
+
 
 // type Path = String
 // getNextSnapshotId :: Path -> String
