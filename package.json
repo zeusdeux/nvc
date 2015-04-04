@@ -1,0 +1,24 @@
+{
+  "name": "nvc",
+  "version": "1.0.0",
+  "description": "Naive version control system",
+  "main": "index.js",
+  "bin": {
+    "nvc": "./bin/nvc"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "nvc",
+    "version",
+    "control"
+  ],
+  "author": "Mudit Ameta",
+  "license": "MIT",
+  "dependencies": {
+    "debug": "^2.1.3",
+    "minimist": "^1.1.1",
+    "wrench": "^1.5.8"
+  }
+}
