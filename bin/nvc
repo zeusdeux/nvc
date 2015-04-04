@@ -131,13 +131,13 @@ function perform(operation, args) {
     case 'log':
       HEAD = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD')));
 
-      if (HEAD) {
+      if (HEAD && HEAD.length) {
         HEAD.forEach(function(snapshot) {
           console.log('nvc: '.blue + '%d'.yellow + ' created on '.grey + '%s'.yellow, snapshot.id, new Date(snapshot.createdOn).toString());
           if (HEAD.message) console.log('nvc: '.blue + 'Message was -> '.grey + HEAD.message.black);
         });
       }
-      else console.log('nvc: '.blue + 'No snapshots found'.red);
+      else console.log('nvc: '.blue + 'No snapshots hence no logs'.red);
       break;
     case 'diff':
       break;
