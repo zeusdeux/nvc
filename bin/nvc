@@ -18,7 +18,7 @@ var nvcPath = path.resolve('.', '.nvc');
 // type Path = String
 // getNextSnapshotId :: Path -> String
 function getNextSnapshotId(nvcPath) {
-  return (fs.readdirSync(nvcPath).length + 1);
+  return (fs.readdirSync(nvcPath).length - 1); // -1 to compensate for the HEAD file
 }
 
 // snap :: IO ()
@@ -32,7 +32,10 @@ function snap(msg) {
   });
 
   // update HEAD with snapshot and message
-  HEAD.push({id: nextSnapshotId, message: msg});
+  HEAD.push({
+    id: nextSnapshotId,
+    message: msg
+  });
   fs.writeFileSync(path.join(nvcPath, 'HEAD'), JSON.stringify(HEAD));
 
   console.log('nvc: '.blue + 'Snapshot %d created'.green, nextSnapshotId);
@@ -57,7 +60,7 @@ function checkout(snapshotId) {
     if ('.nvc' === file) return;
 
     var filePath = path.join('.', file);
-    var stats    = fs.statSync(filePath);
+    var stats = fs.statSync(filePath);
 
     if (stats.isDirectory()) rmdir(filePath, false);
     else fs.unlinkSync(filePath);
@@ -108,12 +111,19 @@ function perform(operation, args) {
   switch (operation) {
     case 'snap':
     case 'backup':
-    snap('-m' ===  args[0] ? args[1] : '');
+      snap('-m' === args[0] ? args[1] : '');
       break;
     case 'checkout':
       checkout(args[0]);
       break;
     case 'current':
+      var HEAD = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD'))).pop();
+
+      if (HEAD) {
+        console.log('nvc: '.blue + 'Current snapshot is %d'.yellow, HEAD.id);
+        if (HEAD.message) console.log('nvc: '.blue + 'Message was -> '.grey + HEAD.message.black);
+      }
+      else console.log('nvc: '.blue + 'No snapshots found'.red);
       break;
     case 'log':
       break;
