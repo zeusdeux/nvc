@@ -129,12 +129,12 @@ function perform(operation, args) {
       else console.log('nvc: '.blue + 'No snapshots found'.red);
       break;
     case 'log':
-      HEAD = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD')));
+      var snapshots = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD')));
 
-      if (HEAD && HEAD.length) {
-        HEAD.forEach(function(snapshot) {
+      if (snapshots && snapshots.length) {
+        snapshots.forEach(function(snapshot) {
           console.log('nvc: '.blue + '%d'.yellow + ' created on '.grey + '%s'.yellow, snapshot.id, new Date(snapshot.createdOn).toString());
-          if (HEAD.message) console.log('nvc: '.blue + 'Message was -> '.grey + HEAD.message.black);
+          if (snapshot.message) console.log('       Message was -> '.grey + snapshot.message.black);
         });
       }
       else console.log('nvc: '.blue + 'No snapshots hence no logs'.red);
