@@ -170,12 +170,12 @@ function diff(args) {
           const slice3 = line.slice(0, 3);
           const slice8 = line.slice(0, 8);
 
-          if ('Binary files' === line.slice(0, 12)) return line.slice(0, 12).blue + line.slice(12);
+          if ('Binary files'  === line.slice(0, 12)) return line.slice(0, 12).blue + line.slice(12);
           else if ('diff -ru' === slice8) return line.bold;
-          else if ('+++' === slice3 || '---' === slice3) return line.bold;
-          else if ('+' === line[0]) return line.green;
-          else if ('-' === line[0]) return line.red;
-          else if ('@@ ' === slice3) return line.cyan;
+          else if ('+++'      === slice3 || '---' === slice3) return line.bold;
+          else if ('+'        === line[0]) return line.green;
+          else if ('-'        === line[0]) return line.red;
+          else if ('@@ '      === slice3) return line.cyan;
           else if ('Only in ' === slice8) return slice8.yellow + line.slice(8);
           else return line;
         });
@@ -184,6 +184,22 @@ function diff(args) {
       else exitWithError(createErrorMsg(err.code + ': ' + err.message + stderr + stdout));
     }
   });
+}
+
+// help :: IO ()
+function help() {
+  printMsg(
+    'nvc is a naive version control system built for fun at Recurse Center, NY. The sub-commands it handles are below.' +
+    createInfoMsg('\n\n') +
+    createInfoMsg('\tsnap: Snap creates snapshot of your current project.\n\n') +
+    createInfoMsg('\t\t-m <msg>: Use this option to save a message with your snapshot\n\n') +
+    createInfoMsg('\tcheckout <snapshot>: Checkout a particular snapshot. Snapshot must be a valid snapshot id\n\n') +
+    createInfoMsg('\tdestroy <snapshot>: Irreversibly destroy a snapshot. Snapshot must be a valid snapshot id\n\n') +
+    createInfoMsg('\tlatest: Display if of the latest snapshot created\n\n') +
+    createInfoMsg('\tlog: Log the snapshots and some info about each\n\n') +
+    createInfoMsg('\tdiff <snapshot> <snapshot>: Diff two snapshots. Snapshots must be valid snapshot ids\n')
+  );
+  exitWithSuccess();
 }
 
 // type Operation = String
@@ -228,6 +244,8 @@ function run(operation, args) {
   }
 }
 
+// type Operation = String
+// perform :: Operation -> [arg] -> IO ()
 function perform(operation, args) {
   var HEAD, snapshotId;
 
@@ -273,18 +291,7 @@ function perform(operation, args) {
     case 'branch':
       break;
     case 'help':
-      printMsg(
-        'nvc is a naive version control system built for fun at Recurse Center, NY. The sub-commands it handles are below.' +
-        createInfoMsg('\n\n') +
-        createInfoMsg('\tsnap: Snap creates snapshot of your current project.\n\n') +
-        createInfoMsg('\t\t-m <msg>: Use this option to save a message with your snapshot\n\n') +
-        createInfoMsg('\tcheckout <snapshot>: Checkout a particular snapshot. Snapshot must be a valid snapshot id\n\n') +
-        createInfoMsg('\tdestroy <snapshot>: Irreversibly destroy a snapshot. Snapshot must be a valid snapshot id\n\n') +
-        createInfoMsg('\tlatest: Display if of the latest snapshot created\n\n') +
-        createInfoMsg('\tlog: Log the snapshots and some info about each\n\n') +
-        createInfoMsg('\tdiff <snapshot> <snapshot>: Diff two snapshots. Snapshots must be valid snapshot ids\n')
-      );
-      exitWithSuccess();
+      help();
       break;
     default:
       exitWithError(createErrorMsg('Unrecognised command -> ') + createWarnMsg(operation));
