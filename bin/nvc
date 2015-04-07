@@ -192,34 +192,37 @@ function diff(args) {
 function run(operation, args) {
   d('Params %s, %o', operation, args);
 
-  try {
-    const stats = fs.statSync(nvcPath);
+  if ('help' === operation) perform(operation, args);
+  else {
+    try {
+      const stats = fs.statSync(nvcPath);
 
-    if (stats.isDirectory()) perform(operation, args);
-    else throw new Error('.nvc exists but is not a directory.');
-  }
-  catch (e) {
-    switch (e.code) {
-      case 'ENOENT':
-        printMsg(createInfoMsg('Creating repository..'));
-
-        // make directory since it doesn't exist
-        fs.mkdirSync('./.nvc', '0755');
-
-        // make HEAD file
-        fs.writeFileSync('./.nvc/HEAD', '[]', {
-          mode: 420
-        }); //420 is 0644 in octal. Try (420).toString(8)
-
-        // perform operation
-        perform(operation, args);
-        break;
-      default:
-        // chuck error out to default handler if it isn't ENOENT
-        throw e;
+      if (stats.isDirectory()) perform(operation, args);
+      else throw new Error('.nvc exists but is not a directory.');
     }
-  }
+    catch (e) {
+      switch (e.code) {
+        case 'ENOENT':
+          printMsg(createInfoMsg('Creating repository..'));
 
+          // make directory since it doesn't exist
+          fs.mkdirSync('./.nvc', '0755');
+
+          // make HEAD file
+          fs.writeFileSync('./.nvc/HEAD', '[]', {
+            mode: 420
+          }); //420 is 0644 in octal. Try (420).toString(8)
+
+          // perform operation
+          perform(operation, args);
+          break;
+        default:
+          // chuck error out to default handler if it isn't ENOENT
+          throw e;
+      }
+    }
+
+  }
 }
 
 function perform(operation, args) {
