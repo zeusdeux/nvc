@@ -4,15 +4,14 @@
 
 require('colors');
 
-var fs = require('fs');
-var path = require('path');
-var d = require('debug')('nvc');
-var exec = require('child_process').exec;
-var rmdir = require('wrench').rmdirSyncRecursive;
-var cp = require('wrench').copyDirSyncRecursive;
-var LineReader = require('wrench').LineReader;
+var fs      = require('fs');
+var path    = require('path');
+var d       = require('debug')('nvc');
+var exec    = require('child_process').exec;
+var rmdir   = require('wrench').rmdirSyncRecursive;
+var cp      = require('wrench').copyDirSyncRecursive;
 //var cp    = require('../src/cp');
-var args = process.argv.slice(2);
+var args    = process.argv.slice(2);
 var nvcPath = path.resolve('.', '.nvc');
 
 
@@ -34,8 +33,8 @@ function exitWithError(msg) {
 // snap :: IO ()
 function snap(msg) {
   const nextSnapshotId = getNextSnapshotId(nvcPath).toString();
-  const snapshotPath = path.join(nvcPath, nextSnapshotId);
-  const HEAD = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD')));
+  const snapshotPath   = path.join(nvcPath, nextSnapshotId);
+  const HEAD           = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD')));
 
   cp('.', snapshotPath, {
     exclude: /\.nvc/
@@ -78,14 +77,14 @@ function checkout(snapshotId) {
     if (snapshotId > latestSnapshotId) exitWithError('Snapshot ' + snapshotId + ' hasn\'t been created yet');
 
     const snapshotPath = path.join(nvcPath, snapshotId + '');
-    const files = fs.readdirSync('.');
+    const files        = fs.readdirSync('.');
 
     // delete all files and folders except .nvc in cwd (should be project root really)
     files.forEach(function(file) {
       if ('.nvc' === file) return;
 
-      var filePath = path.join('.', file);
-      var stats = fs.statSync(filePath);
+      const filePath = path.join('.', file);
+      const stats    = fs.statSync(filePath);
 
       if (stats.isDirectory()) rmdir(filePath, false);
       else fs.unlinkSync(filePath);
@@ -114,7 +113,7 @@ function diff(args) {
   //all good from this point
   const snapshotPath1 = path.join(nvcPath, args[0] + '');
   const snapshotPath2 = path.join(nvcPath, args[1] + '');
-  const cmd = 'diff -ru ' + snapshotPath1 + ' ' + snapshotPath2;
+  const cmd           = 'diff -ru ' + snapshotPath1 + ' ' + snapshotPath2;
 
   d('Diff command:', cmd);
 
@@ -135,7 +134,7 @@ function diff(args) {
       // if exit code of diff is 1 or 2, then files are different so log stdout
       // see exit codes in `info diff` in terminal
       if (2 === err.code || 1 === err.code) {
-        const stdoutLines = stdout.split('\n');
+        const stdoutLines        = stdout.split('\n');
         const coloredStdoutLines = stdoutLines.map(function(line) {
           const slice3 = line.slice(0, 3);
           const slice8 = line.slice(0, 8);
