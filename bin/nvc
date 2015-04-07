@@ -1,33 +1,43 @@
-#! /usr/bin/env node
+#! /usr/bin/env node --harmony
 
 'use strict';
 
 require('colors');
 
-var fs      = require('fs');
-var path    = require('path');
-var d       = require('debug')('nvc');
-var exec    = require('child_process').exec;
-var cp      = require('wrench').copyDirSyncRecursive;
-var rmdir   = require('wrench').rmdirSyncRecursive;
+var fs = require('fs');
+var path = require('path');
+var d = require('debug')('nvc');
+var exec = require('child_process').exec;
+var rmdir = require('wrench').rmdirSyncRecursive;
+var cp = require('wrench').copyDirSyncRecursive;
+var LineReader = require('wrench').LineReader;
 //var cp    = require('../src/cp');
-var args    = process.argv.slice(2);
+var args = process.argv.slice(2);
 var nvcPath = path.resolve('.', '.nvc');
 
 
 // type Path = String
-// getNextSnapshotId :: Path -> String
+// getNextSnapshotId :: Path -> Int
 function getNextSnapshotId(nvcPath) {
-  return (fs.readdirSync(nvcPath).length - 1); // -1 to compensate for the HEAD file
+  var files = fs.readdirSync(nvcPath);
+
+  d('next snap shot id: %d \n      files: %o', files.length, files);
+  return files.length;
+}
+
+// exitWithError :: String -> IO ()
+function exitWithError(msg) {
+  console.log('nvc: '.blue + msg.red);
+  process.exit(1);
 }
 
 // snap :: IO ()
 function snap(msg) {
-  var nextSnapshotId = getNextSnapshotId(nvcPath).toString();
-  var snapShotPath   = path.join(nvcPath, nextSnapshotId);
-  var HEAD           = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD')));
+  const nextSnapshotId = getNextSnapshotId(nvcPath).toString();
+  const snapshotPath = path.join(nvcPath, nextSnapshotId);
+  const HEAD = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD')));
 
-  cp('.', snapShotPath, {
+  cp('.', snapshotPath, {
     exclude: /\.nvc/
   });
 
@@ -42,33 +52,107 @@ function snap(msg) {
   console.log('nvc: '.blue + 'Snapshot %d created'.green, nextSnapshotId);
 }
 
+// destroy :: Int -> IO ()
+function destroy(snapshotId) {
+  const latestSnapshotId = getNextSnapshotId(nvcPath) - 1;
+
+  if (isNaN(snapshotId)) exitWithError('Snapshot passed to destroy must be a number');
+  else {
+    if (snapshotId > latestSnapshotId) exitWithError('Snapshot ' + snapshotId + ' hasn\'t been created yet');
+
+    const snapshotPath = path.join(nvcPath, snapshotId + '');
+
+    rmdir(snapshotPath, false);
+    console.log('nvc: '.blue + 'Snapshot %d has been destroyed'.green, snapshotId);
+  }
+}
+
 // checkout :: Int -> IO ()
 function checkout(snapshotId) {
-  var latestSnapshotId = getNextSnapshotId(nvcPath) - 1;
+  if (isNaN(snapshotId)) exitWithError('Snapshot passed to checkout must be a number');
+  else {
+    const latestSnapshotId = getNextSnapshotId(nvcPath) - 1;
 
-  snapshotId = 'latest' === snapshotId ? latestSnapshotId : snapshotId;
+    snapshotId = 'latest' === snapshotId ? latestSnapshotId : snapshotId;
 
-  if (snapshotId > latestSnapshotId) {
-    console.log('nvc: '.blue + 'Snapshot %d hasn\'t been created yet'.red, snapshotId);
-    process.exit(1);
+    if (snapshotId > latestSnapshotId) exitWithError('Snapshot ' + snapshotId + ' hasn\'t been created yet');
+
+    const snapshotPath = path.join(nvcPath, snapshotId + '');
+    const files = fs.readdirSync('.');
+
+    // delete all files and folders except .nvc in cwd (should be project root really)
+    files.forEach(function(file) {
+      if ('.nvc' === file) return;
+
+      var filePath = path.join('.', file);
+      var stats = fs.statSync(filePath);
+
+      if (stats.isDirectory()) rmdir(filePath, false);
+      else fs.unlinkSync(filePath);
+    });
+
+    exec('cp -R ' + snapshotPath + '/ .', function(err, stdout, stderr) {
+      if (!err) console.log('nvc: '.blue + 'Snapshot %d restored'.green, snapshotId);
+      else exitWithError(err.message + (stderr ? '\n' + stderr : ''));
+    });
   }
+}
 
-  var snapShotPath = path.join(nvcPath, snapshotId + '');
-  var files        = fs.readdirSync('.');
+// diff :: [arg] -> IO()
+function diff(args) {
+  d('Diff args:', args);
+  const latestSnapshotId = getNextSnapshotId(nvcPath) - 1;
 
-  // delete all files and folders except .nvc in cwd (should be project root really)
-  files.forEach(function(file) {
-    if ('.nvc' === file) return;
+  if (args.length < 2) exitWithError('Diff takes two arguments both of which must be valid snapshot ids');
 
-    var filePath = path.join('.', file);
-    var stats    = fs.statSync(filePath);
-
-    if (stats.isDirectory()) rmdir(filePath, false);
-    else fs.unlinkSync(filePath);
+  args = args.filter(function(v) {
+    return !isNaN(v) && (v <= latestSnapshotId);
   });
 
-  exec('cp -R ' + snapShotPath + '/ .', function(err, stdout, stderr) {
-    if (!err) console.log('nvc: '.blue + 'Snapshot %d restored'.green, snapshotId);
+  if (args.length < 2) exitWithError('Arguments to diff must be integer snapshot ids and they should be lesser than the latest snapshot id');
+
+  //all good from this point
+  const snapshotPath1 = path.join(nvcPath, args[0] + '');
+  const snapshotPath2 = path.join(nvcPath, args[1] + '');
+  const cmd = 'diff -ru ' + snapshotPath1 + ' ' + snapshotPath2;
+
+  d('Diff command:', cmd);
+
+  // SO, um, diff is weird. It exits with an exit code that is greater than 0
+  // when the stuff being diff-ed are different.
+  // That is just how the diff spec says diff should work.
+  // It's useful in shell scripts as `diff x y` can be used directly in an `if` clause.
+  // BUT, for us, that a crap ton of bad news because that means that, when exec
+  // errors out (i.e., err is not null which happens when exit code of what exec's trying
+  // to run is greater than 0) in the case of diff, that means diff actually might have
+  // worked. That is to say that when the files are different, diff exits with exit code > 0
+  // which in turn causes exec to error but it can mean that diff worked and just that the
+  // files were different.
+  // SO MUCH POTATO!
+  exec(cmd, function(err, stdout, stderr) {
+    if (!err) console.log('nvc: '.blue + 'No files changed'.green);
+    else {
+      // if exit code of diff is 1 or 2, then files are different so log stdout
+      // see exit codes in `info diff` in terminal
+      if (2 === err.code || 1 === err.code) {
+        const stdoutLines = stdout.split('\n');
+        const coloredStdoutLines = stdoutLines.map(function(line) {
+          const slice3 = line.slice(0, 3);
+          const slice8 = line.slice(0, 8);
+
+          if ('Binary files' === line.slice(0, 12)) return line.slice(0, 12).blue + line.slice(12);
+          else if ('diff -ru' === slice8) return line.bold;
+          else if ('+++' === slice3 || '---' === slice3) return line.bold;
+          else if ('+' === line[0]) return line.green;
+          else if ('-' === line[0]) return line.red;
+          else if ('@@ ' === slice3) return line.cyan;
+          else if ('Only in ' === slice8) return slice8.yellow + line.slice(8);
+          else return line;
+        });
+        console.log(coloredStdoutLines.join('\n'));
+      }
+      else exitWithError(err.code + ': ' + err.message + stderr + stdout);
+    }
   });
 }
 
@@ -79,7 +163,7 @@ function run(operation, args) {
   d('Params %s, %o', operation, args);
 
   try {
-    var stats = fs.statSync(nvcPath);
+    const stats = fs.statSync(nvcPath);
 
     if (stats.isDirectory()) perform(operation, args);
     else throw new Error('.nvc exists but is not a directory.');
@@ -109,7 +193,7 @@ function run(operation, args) {
 }
 
 function perform(operation, args) {
-  var HEAD;
+  var HEAD, snapshotId;
 
   switch (operation) {
     case 'snap':
@@ -117,7 +201,12 @@ function perform(operation, args) {
       snap('-m' === args[0] ? args[1] : '');
       break;
     case 'checkout':
-      checkout(args[0]);
+      snapshotId = parseInt(args[0], 10);
+      checkout(snapshotId);
+      break;
+    case 'destroy':
+      snapshotId = parseInt(args[0], 10);
+      destroy(snapshotId);
       break;
     case 'current':
       HEAD = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD'))).pop();
@@ -140,6 +229,10 @@ function perform(operation, args) {
       else console.log('nvc: '.blue + 'No snapshots hence no logs'.red);
       break;
     case 'diff':
+      args = args.map(function(snapshot) {
+        return parseInt(snapshot, 10);
+      });
+      diff(args);
       break;
     case 'branch':
       break;
