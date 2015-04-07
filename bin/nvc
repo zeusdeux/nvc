@@ -192,6 +192,9 @@ function diff(args) {
 function run(operation, args) {
   d('Params %s, %o', operation, args);
 
+  // displays help by default
+  operation = operation || 'help';
+
   if ('help' === operation) perform(operation, args);
   else {
     try {
