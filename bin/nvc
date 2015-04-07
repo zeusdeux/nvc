@@ -4,15 +4,15 @@
 
 require('colors');
 
-var fs      = require('fs');
-var path    = require('path');
-var d       = require('debug')('nvc');
-var exec    = require('child_process').exec;
-var rmdir   = require('wrench').rmdirSyncRecursive;
-var cp      = require('wrench').copyDirSyncRecursive;
-//var cp    = require('../src/cp');
-var args    = process.argv.slice(2);
-var nvcPath = path.resolve('.', '.nvc');
+const fs      = require('fs');
+const path    = require('path');
+const d       = require('debug')('nvc');
+const exec    = require('child_process').exec;
+const rmdir   = require('wrench').rmdirSyncRecursive;
+const cp      = require('wrench').copyDirSyncRecursive;
+//const cp      = require('../src/cp');
+const args    = process.argv.slice(2);
+const nvcPath = path.resolve('.', '.nvc');
 
 
 // createWarnMsg :: String -> ColoredString
