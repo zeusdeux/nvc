@@ -122,7 +122,26 @@ function checkout(snapshotId) {
     });
 
     exec('cp -R ' + snapshotPath + '/ .', function(err, stdout, stderr) {
-      if (!err) exitWithSuccess(createSuccessMsg('Snapshot ' + snapshotId + ' restored'));
+      if (!err) {
+        // write which snapshot is checked out to HEAD
+        try {
+          var HEAD = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD')));
+
+          HEAD     = HEAD.map(function(snapshot) {
+            delete snapshot.checkedOut;
+            if (snapshotId === parseInt(snapshot.id, 10)) return snapshot.checkedOut = true, snapshot;
+            else return snapshot;
+          });
+
+          d('Checkout: HEAD before writing:', JSON.stringify(HEAD));
+
+          fs.writeFileSync(path.join(nvcPath, 'HEAD'), JSON.stringify(HEAD));
+          exitWithSuccess(createSuccessMsg('Snapshot ' + snapshotId + ' restored'));
+        }
+        catch(e) {
+          exitWithError(createErrorMsg(e.message + (stderr ? '\n' + stderr : '') + e.stack));
+        }
+      }
       else exitWithError(createErrorMsg(err.message + (stderr ? '\n' + stderr : '')));
     });
   }
@@ -262,15 +281,6 @@ function perform(operation, args) {
       snapshotId = parseInt(args[0], 10);
       destroy(snapshotId);
       break;
-    case 'latest':
-      HEAD = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD'))).pop();
-
-      if (HEAD) {
-        printMsg(createInfoMsg('Current snapshot is ' + HEAD.id));
-        if (HEAD.message) printMsg(createInfoMsg('Message was -> ') + HEAD.message.black);
-      }
-      else exitWithError(createErrorMsg('No snapshots found'));
-      break;
     case 'log':
       var snapshots = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD')));
 
@@ -288,6 +298,24 @@ function perform(operation, args) {
       });
       diff(args);
       break;
+    case 'latest':
+      HEAD = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD'))).pop();
+
+      if (HEAD) {
+        printMsg(createInfoMsg('Latest snapshot is ' + HEAD.id));
+        if (HEAD.message) printMsg(createInfoMsg('Message was -> ') + HEAD.message.black);
+      }
+      else exitWithError(createErrorMsg('No snapshots found'));
+      break;
+    case 'current':
+      HEAD = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD')));
+
+      HEAD = HEAD.filter(function(v) {
+        return !!v.checkedOut;
+      }).pop();
+      if (HEAD) exitWithSuccess(createInfoMsg('Current checked out snapshot is ' + HEAD.id));
+      else exitWithError(createErrorMsg('No snapshot has been checked out yet'));
+      break;
     case 'branch':
       break;
     case 'help':
@@ -297,5 +325,6 @@ function perform(operation, args) {
       exitWithError(createErrorMsg('Unrecognised command -> ') + createWarnMsg(operation));
   }
 }
+
 
 run(args.shift(), args);
