@@ -15,6 +15,26 @@ var args    = process.argv.slice(2);
 var nvcPath = path.resolve('.', '.nvc');
 
 
+// createWarnMsg :: String -> ColoredString
+function createWarnMsg(msg) {
+  return msg.yellow;
+}
+
+// createErrorMsg :: String -> coloredString
+function createErrorMsg(msg) {
+  return msg.red;
+}
+
+// createSuccessMsg :: String -> ColoredString
+function createSuccessMsg(msg) {
+  return msg.green;
+}
+
+// createInfoMsg :: String -> ColoredString
+function createInfoMsg(msg) {
+  return msg.grey;
+}
+
 // type Path = String
 // getNextSnapshotId :: Path -> Int
 function getNextSnapshotId(nvcPath) {
@@ -24,9 +44,20 @@ function getNextSnapshotId(nvcPath) {
   return files.length;
 }
 
+// printMsg :: String -> IO ()
+function printMsg(msg) {
+  console.log('nvc: '.blue + msg);
+}
+
+// exitWithSuccess :: String -> IO ()
+function exitWithSuccess(msg) {
+  if (msg) printMsg(msg);
+  process.exit(0);
+}
+
 // exitWithError :: String -> IO ()
 function exitWithError(msg) {
-  console.log('nvc: '.blue + msg.red);
+  if (msg) printMsg(msg);
   process.exit(1);
 }
 
@@ -48,33 +79,33 @@ function snap(msg) {
   });
   fs.writeFileSync(path.join(nvcPath, 'HEAD'), JSON.stringify(HEAD));
 
-  console.log('nvc: '.blue + 'Snapshot %d created'.green, nextSnapshotId);
+  exitWithSuccess(createSuccessMsg('Snapshot ' + nextSnapshotId + ' created'));
 }
 
 // destroy :: Int -> IO ()
 function destroy(snapshotId) {
   const latestSnapshotId = getNextSnapshotId(nvcPath) - 1;
 
-  if (isNaN(snapshotId)) exitWithError('Snapshot passed to destroy must be a number');
+  if (isNaN(snapshotId)) exitWithError(createErrorMsg('Snapshot passed to destroy must be a number'));
   else {
-    if (snapshotId > latestSnapshotId) exitWithError('Snapshot ' + snapshotId + ' hasn\'t been created yet');
+    if (snapshotId > latestSnapshotId) exitWithError(createErrorMsg('Snapshot ' + snapshotId + ' hasn\'t been created yet'));
 
     const snapshotPath = path.join(nvcPath, snapshotId + '');
 
     rmdir(snapshotPath, false);
-    console.log('nvc: '.blue + 'Snapshot %d has been destroyed'.green, snapshotId);
+    exitWithSuccess(createSuccessMsg('Snapshot ' + snapshotId + ' has been destroyed'));
   }
 }
 
 // checkout :: Int -> IO ()
 function checkout(snapshotId) {
-  if (isNaN(snapshotId)) exitWithError('Snapshot passed to checkout must be a number');
+  if (isNaN(snapshotId)) exitWithError(createErrorMsg('Snapshot passed to checkout must be a number'));
   else {
     const latestSnapshotId = getNextSnapshotId(nvcPath) - 1;
 
     snapshotId = 'latest' === snapshotId ? latestSnapshotId : snapshotId;
 
-    if (snapshotId > latestSnapshotId) exitWithError('Snapshot ' + snapshotId + ' hasn\'t been created yet');
+    if (snapshotId > latestSnapshotId) exitWithError(createErrorMsg('Snapshot ' + snapshotId + ' hasn\'t been created yet'));
 
     const snapshotPath = path.join(nvcPath, snapshotId + '');
     const files        = fs.readdirSync('.');
@@ -91,8 +122,8 @@ function checkout(snapshotId) {
     });
 
     exec('cp -R ' + snapshotPath + '/ .', function(err, stdout, stderr) {
-      if (!err) console.log('nvc: '.blue + 'Snapshot %d restored'.green, snapshotId);
-      else exitWithError(err.message + (stderr ? '\n' + stderr : ''));
+      if (!err) exitWithSuccess(createSuccessMsg('Snapshot ' + snapshotId + ' restored'));
+      else exitWithError(createErrorMsg(err.message + (stderr ? '\n' + stderr : '')));
     });
   }
 }
@@ -102,13 +133,13 @@ function diff(args) {
   d('Diff args:', args);
   const latestSnapshotId = getNextSnapshotId(nvcPath) - 1;
 
-  if (args.length < 2) exitWithError('Diff takes two arguments both of which must be valid snapshot ids');
+  if (args.length < 2) exitWithError(createErrorMsg('Diff takes two arguments both of which must be valid snapshot ids'));
 
   args = args.filter(function(v) {
     return !isNaN(v) && (v <= latestSnapshotId);
   });
 
-  if (args.length < 2) exitWithError('Arguments to diff must be integer snapshot ids and they should be lesser than the latest snapshot id');
+  if (args.length < 2) exitWithError(createErrorMsg('Arguments to diff must be integer snapshot ids and they should be lesser than the latest snapshot id'));
 
   //all good from this point
   const snapshotPath1 = path.join(nvcPath, args[0] + '');
@@ -129,7 +160,7 @@ function diff(args) {
   // files were different.
   // SO MUCH POTATO!
   exec(cmd, function(err, stdout, stderr) {
-    if (!err) console.log('nvc: '.blue + 'No files changed'.green);
+    if (!err) exitWithSuccess(createSuccessMsg('No files changed'));
     else {
       // if exit code of diff is 1 or 2, then files are different so log stdout
       // see exit codes in `info diff` in terminal
@@ -150,7 +181,7 @@ function diff(args) {
         });
         console.log(coloredStdoutLines.join('\n'));
       }
-      else exitWithError(err.code + ': ' + err.message + stderr + stdout);
+      else exitWithError(createErrorMsg(err.code + ': ' + err.message + stderr + stdout));
     }
   });
 }
@@ -170,7 +201,7 @@ function run(operation, args) {
   catch (e) {
     switch (e.code) {
       case 'ENOENT':
-        console.log('nvc: '.blue + 'Creating repository..'.yellow);
+        printMsg(createInfoMsg('Creating repository..'));
 
         // make directory since it doesn't exist
         fs.mkdirSync('./.nvc', '0755');
@@ -207,25 +238,25 @@ function perform(operation, args) {
       snapshotId = parseInt(args[0], 10);
       destroy(snapshotId);
       break;
-    case 'current':
+    case 'latest':
       HEAD = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD'))).pop();
 
       if (HEAD) {
-        console.log('nvc: '.blue + 'Current snapshot is %d'.yellow, HEAD.id);
-        if (HEAD.message) console.log('nvc: '.blue + 'Message was -> '.grey + HEAD.message.black);
+        printMsg(createInfoMsg('Current snapshot is ' + HEAD.id));
+        if (HEAD.message) printMsg(createInfoMsg('Message was -> ') + HEAD.message.black);
       }
-      else console.log('nvc: '.blue + 'No snapshots found'.red);
+      else exitWithError(createErrorMsg('No snapshots found'));
       break;
     case 'log':
       var snapshots = JSON.parse(fs.readFileSync(path.join(nvcPath, 'HEAD')));
 
       if (snapshots && snapshots.length) {
         snapshots.forEach(function(snapshot) {
-          console.log('nvc: '.blue + '%d'.yellow + ' created on '.grey + '%s'.yellow, snapshot.id, new Date(snapshot.createdOn).toString());
-          if (snapshot.message) console.log('       Message was -> '.grey + snapshot.message.black);
+          printMsg(createWarnMsg(snapshot.id + '') + createInfoMsg(' created on ') + createWarnMsg(new Date(snapshot.createdOn).toString()));
+          if (snapshot.message) printMsg(createInfoMsg('  Message:\n        ') + snapshot.message.black);
         });
       }
-      else console.log('nvc: '.blue + 'No snapshots hence no logs'.red);
+      else exitWithError(createErrorMsg('No snapshots hence no logs'));
       break;
     case 'diff':
       args = args.map(function(snapshot) {
@@ -235,9 +266,22 @@ function perform(operation, args) {
       break;
     case 'branch':
       break;
+    case 'help':
+      printMsg(
+        'nvc is a naive version control system built for fun at Recurse Center, NY. The sub-commands it handles are below.' +
+        createInfoMsg('\n\n') +
+        createInfoMsg('\tsnap: Snap creates snapshot of your current project.\n\n') +
+        createInfoMsg('\t\t-m <msg>: Use this option to save a message with your snapshot\n\n') +
+        createInfoMsg('\tcheckout <snapshot>: Checkout a particular snapshot. Snapshot must be a valid snapshot id\n\n') +
+        createInfoMsg('\tdestroy <snapshot>: Irreversibly destroy a snapshot. Snapshot must be a valid snapshot id\n\n') +
+        createInfoMsg('\tlatest: Display if of the latest snapshot created\n\n') +
+        createInfoMsg('\tlog: Log the snapshots and some info about each\n\n') +
+        createInfoMsg('\tdiff <snapshot> <snapshot>: Diff two snapshots. Snapshots must be valid snapshot ids\n')
+      );
+      exitWithSuccess();
+      break;
     default:
-      console.log('nvc: '.blue + 'Unrecognised command -> '.red + operation.yellow);
-      process.exit(1);
+      exitWithError(createErrorMsg('Unrecognised command -> ') + createWarnMsg(operation));
   }
 }
 
