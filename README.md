@@ -8,3 +8,4 @@ Todo:
 
 - Branching
 - Merging and the headaches that follow it
+- Refactor the code
